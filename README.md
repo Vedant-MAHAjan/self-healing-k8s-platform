@@ -16,61 +16,7 @@ make demo-infra  # Creates cluster, deploys operator (30 seconds)
 
 ## 🏗️ Architecture
 
-```
-                    ┌─────────────────────────────────────┐
-                    │         Kubernetes Cluster          │
-                    │                                     │
-                    │   ┌─────────┐    ┌─────────────┐   │
-                    │   │  Pods   │    │ Deployments │   │
-                    │   └────┬────┘    └──────┬──────┘   │
-                    │        │                │          │
-                    │        └───────┬────────┘          │
-                    │                │                   │
-                    └────────────────┼───────────────────┘
-                                     │
-                                     ▼
-                    ┌─────────────────────────────────────┐
-                    │      Self-Healing Operator          │
-                    │                                     │
-                    │  ┌──────────────────────────────┐  │
-                    │  │   1. Issue Detection         │  │
-                    │  │      • CrashLoopBackOff      │  │
-                    │  │      • OOMKilled             │  │
-                    │  │      • ImagePullBackOff      │  │
-                    │  └──────────────┬───────────────┘  │
-                    │                 │                   │
-                    │                 ▼                   │
-                    │  ┌──────────────────────────────┐  │
-                    │  │   2. AI Diagnosis Engine     │  │
-                    │  │                              │  │
-                    │  │   ┌────────────────────┐    │  │
-                    │  │   │  Ollama (llama3)   │    │  │
-                    │  │   │   Local LLM - FREE │    │  │
-                    │  │   └────────────────────┘    │  │
-                    │  │                              │  │
-                    │  │   • Analyzes logs & events  │  │
-                    │  │   • Determines root cause   │  │
-                    │  │   • Recommends strategy     │  │
-                    │  └──────────────┬───────────────┘  │
-                    │                 │                   │
-                    │                 ▼                   │
-                    │  ┌──────────────────────────────┐  │
-                    │  │   3. Remediation Engine      │  │
-                    │  │                              │  │
-                    │  │   • restart_pod              │  │
-                    │  │   • scale_up / scale_down    │  │
-                    │  │   • rollback_deployment      │  │
-                    │  │   • increase_resources       │  │
-                    │  └──────────────┬───────────────┘  │
-                    │                 │                   │
-                    └─────────────────┼───────────────────┘
-                                      │
-                                      ▼
-                    ┌─────────────────────────────────────┐
-                    │         Kubernetes API              │
-                    │     (Apply fix automatically)       │
-                    └─────────────────────────────────────┘
-```
+<img width="1024" height="559" alt="image" src="https://github.com/user-attachments/assets/6df8b8b3-d94c-4c15-bba1-326a82a08e61" />
 
 ## ✨ Features
 
