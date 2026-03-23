@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "self-healing-k8s.fullname" . }}-config
+  namespace: {{ .Values.operator.namespace }}
+  labels:
+    {{- include "self-healing-k8s.labels" . | nindent 4 }}
+data:
+  OPERATOR_LOG_LEVEL: {{ .Values.operator.logLevel | quote }}
+  OPERATOR_DRY_RUN: {{ .Values.operator.dryRun | quote }}
+  OPERATOR_OPERATOR_NAMESPACE: {{ .Values.operator.namespace | quote }}
+  OPERATOR_AI_PROVIDER: {{ .Values.ai.provider | quote }}
+  OPERATOR_OPENAI_MODEL: {{ .Values.ai.openai.model | quote }}
+  OPERATOR_ANTHROPIC_MODEL: {{ .Values.ai.anthropic.model | quote }}
+  OPERATOR_AI_TIMEOUT: {{ .Values.ai.timeout | quote }}
+  OPERATOR_AI_MAX_RETRIES: {{ .Values.ai.maxRetries | quote }}
+  OPERATOR_AUTO_APPROVE_FIXES: {{ .Values.remediation.autoApprove | quote }}
+  OPERATOR_MAX_REMEDIATION_RETRIES: {{ .Values.remediation.maxRetries | quote }}
+  OPERATOR_REMEDIATION_COOLDOWN: {{ .Values.remediation.cooldown | quote }}
+  OPERATOR_ENABLE_POD_RESTART: {{ .Values.remediation.strategies.podRestart | quote }}
+  OPERATOR_ENABLE_SCALING: {{ .Values.remediation.strategies.scaling | quote }}
+  OPERATOR_ENABLE_ROLLBACK: {{ .Values.remediation.strategies.rollback | quote }}
+  OPERATOR_PROMETHEUS_URL: {{ .Values.prometheus.url | quote }}
+  OPERATOR_ALERTMANAGER_URL: {{ .Values.prometheus.alertmanagerUrl | quote }}
+  OPERATOR_METRICS_PORT: {{ .Values.metrics.port | quote }}
+  {{- if .Values.argocd.enabled }}
+  OPERATOR_ARGOCD_ENABLED: "true"
+  OPERATOR_ARGOCD_SERVER: {{ .Values.argocd.server | quote }}
+  {{- end }}

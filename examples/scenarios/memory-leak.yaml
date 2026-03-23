@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: memory-leak-app
+  namespace: test-scenarios
+  labels:
+    app: memory-leak-app
+    scenario: memory-leak
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: memory-leak-app
+  template:
+    metadata:
+      labels:
+        app: memory-leak-app
+        scenario: memory-leak
+    spec:
+      containers:
+      - name: app
+        image: python:3.11-slim
+        command: ["python", "-c"]
+        args:
+          - |
+            import time
+            import random
+            from http.server import HTTPServer, BaseHTTPRequestHandler
+            
+            # Simulate memory leak
+            leaked_data = []
+            
+            class Handler(BaseHTTPRequestHandler):
+                def do_GET(self):
+                    # Allocate memory on each request and never free it
+                    leaked_data.append(' ' * random.randint(1000, 10000))
+                    self.send_response(200)
+                    self.end_headers()
+                    self.wfile.write(f"Memory leaked: {len(leaked_data)} objects\n".encode())
+                
+                def log_message(self, format, *args):
+                    pass  # Suppress logs
+            
+            print("Starting server with memory leak...")
+            server = HTTPServer(('0.0.0.0', 8080), Handler)
+            server.serve_forever()
+        ports:
+        - containerPort: 8080
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi

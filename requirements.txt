@@ -1,0 +1,38 @@
+# Kubernetes Operator Framework
+kopf==1.37.1
+kubernetes==28.1.0
+
+# Prometheus Client
+prometheus-client==0.19.0
+
+# AI/LLM
+openai==1.12.0
+anthropic==0.18.1
+
+# HTTP & API
+requests==2.31.0
+aiohttp==3.9.3
+
+# Configuration & Parsing
+pyyaml==6.0.1
+pydantic==2.6.1
+pydantic-settings==2.1.0
+python-dotenv==1.0.1
+
+# Logging & Monitoring
+structlog==24.1.0
+python-json-logger==2.0.7
+
+# Utilities
+tenacity==8.2.3  # Retry logic
+jinja2==3.1.3    # Template rendering
+jsonschema==4.21.1
+
+# Development & Testing
+pytest==8.0.0
+pytest-asyncio==0.23.5
+pytest-cov==4.1.0
+pytest-mock==3.12.0
+black==24.2.0
+flake8==7.0.0
+mypy==1.8.0

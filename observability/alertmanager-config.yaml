@@ -1,0 +1,58 @@
+# Alertmanager configuration for routing alerts to the self-healing operator
+
+global:
+  resolve_timeout: 5m
+
+route:
+  group_by: ['alertname', 'namespace']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 12h
+  receiver: 'self-healing-operator'
+  
+  routes:
+    # Route pod issues to the operator
+    - match_re:
+        alertname: ^(KubePodCrashLooping|KubePodNotReady|KubeContainerOOMKilled|KubePodImagePullBackOff|HighMemoryUsage|CPUThrottlingHigh)$
+      receiver: 'self-healing-operator'
+      continue: true  # Also send to other receivers
+    
+    # Default route for other alerts
+    - match:
+        severity: critical
+      receiver: 'pagerduty'
+    
+    - match:
+        severity: warning
+      receiver: 'slack'
+
+receivers:
+  # Self-healing operator webhook
+  - name: 'self-healing-operator'
+    webhook_configs:
+      - url: 'http://self-healing-operator-alerts.self-healing-system.svc:9099/alerts'
+        send_resolved: true
+        max_alerts: 0  # Send all alerts
+  
+  # Example: PagerDuty for critical alerts
+  - name: 'pagerduty'
+    pagerduty_configs:
+      - service_key: '<your-pagerduty-key>'
+        description: '{{ .CommonAnnotations.summary }}'
+  
+  # Example: Slack for warnings
+  - name: 'slack'
+    slack_configs:
+      - api_url: '<your-slack-webhook-url>'
+        channel: '#alerts'
+        title: 'Alert: {{ .CommonAnnotations.summary }}'
+        text: '{{ .CommonAnnotations.description }}'
+
+inhibit_rules:
+  # Inhibit pod alerts if the node is down
+  - source_match:
+      severity: 'critical'
+      alertname: 'NodeDown'
+    target_match:
+      severity: 'warning'
+    equal: ['instance']

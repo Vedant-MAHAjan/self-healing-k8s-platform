@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: image-pull-error-app
+  namespace: test-scenarios
+  labels:
+    app: image-pull-error-app
+    scenario: image-pull-error
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: image-pull-error-app
+  template:
+    metadata:
+      labels:
+        app: image-pull-error-app
+        scenario: image-pull-error
+      annotations:
+        # Track the original working image for rollback
+        original-image: "nginx:latest"
+    spec:
+      containers:
+      - name: app
+        image: nonexistent-registry.io/invalid-image:v1.0.0
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            cpu: 100m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi

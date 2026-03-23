@@ -1,0 +1,8 @@
+MANIFEST.in
+include README.md LICENSE CONTRIBUTING.md
+recursive-include operator *.py
+recursive-include deploy *.yaml *.tpl
+recursive-include examples *.yaml
+recursive-exclude tests *
+recursive-exclude * __pycache__
+recursive-exclude * *.py[co]

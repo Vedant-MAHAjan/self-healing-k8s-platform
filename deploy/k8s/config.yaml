@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: self-healing-operator-config
+  namespace: self-healing-system
+  labels:
+    app.kubernetes.io/name: self-healing-operator
+data:
+  # DEMO MODE - No API keys required!
+  OPERATOR_LOG_LEVEL: "INFO"
+  OPERATOR_DRY_RUN: "false"
+  OPERATOR_AI_PROVIDER: "mock"
+  OPERATOR_AUTO_APPROVE_FIXES: "true"
+  OPERATOR_MAX_REMEDIATION_RETRIES: "3"
+  OPERATOR_REMEDIATION_COOLDOWN: "60"
+  OPERATOR_ENABLE_POD_RESTART: "true"
+  OPERATOR_ENABLE_SCALING: "true"
+  OPERATOR_ENABLE_ROLLBACK: "true"
+  OPERATOR_METRICS_PORT: "8000"
+  OPERATOR_MAX_LOG_LINES: "100"
+  OPERATOR_MAX_EVENTS_LOOKBACK: "50"

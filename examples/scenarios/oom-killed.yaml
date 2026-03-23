@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: memory-hog
+  namespace: demo
+  labels:
+    app: memory-hog
+    scenario: oom-killed
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: memory-hog
+  template:
+    metadata:
+      labels:
+        app: memory-hog
+        scenario: oom-killed
+    spec:
+      containers:
+      - name: app
+        image: python:3.11-slim
+        command: ["python", "-c"]
+        args:
+          - |
+            import time
+            print("Starting memory allocation...")
+            # Allocate exactly 150MB then sleep forever
+            data = ' ' * 150 * 1024 * 1024
+            print("Allocated 150MB - app now idle")
+            while True:
+                time.sleep(60)
+        resources:
+          requests:
+            cpu: 100m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi  

@@ -1,0 +1,18 @@
+apiVersion: v2
+name: self-healing-k8s
+description: AI-powered self-healing Kubernetes operator
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - kubernetes
+  - operator
+  - ai
+  - self-healing
+  - platform-engineering
+home: https://github.com/yourusername/self-healing-k8s
+sources:
+  - https://github.com/yourusername/self-healing-k8s
+maintainers:
+  - name: Your Name
+    email: your.email@example.com

@@ -1,0 +1,78 @@
+{
+  "dashboard": {
+    "title": "Self-Healing Kubernetes Operator",
+    "tags": ["kubernetes", "self-healing", "ai"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "title": "Alerts Received",
+        "targets": [
+          {
+            "expr": "rate(self_healing_alerts_received_total[5m])",
+            "legendFormat": "{{ issue_type }} - {{ namespace }}"
+          }
+        ],
+        "type": "graph"
+      },
+      {
+        "title": "Fixes Applied",
+        "targets": [
+          {
+            "expr": "rate(self_healing_fixes_applied_total[5m])",
+            "legendFormat": "{{ strategy }} - {{ namespace }}"
+          }
+        ],
+        "type": "graph"
+      },
+      {
+        "title": "Fix Success Rate",
+        "targets": [
+          {
+            "expr": "rate(self_healing_fixes_applied_total[5m]) / (rate(self_healing_fixes_applied_total[5m]) + rate(self_healing_fixes_failed_total[5m]))",
+            "legendFormat": "Success Rate"
+          }
+        ],
+        "type": "graph"
+      },
+      {
+        "title": "AI Diagnosis Latency",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(self_healing_ai_diagnosis_duration_seconds_bucket[5m]))",
+            "legendFormat": "p95"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(self_healing_ai_diagnosis_duration_seconds_bucket[5m]))",
+            "legendFormat": "p99"
+          }
+        ],
+        "type": "graph"
+      },
+      {
+        "title": "Active Issues by Namespace",
+        "targets": [
+          {
+            "expr": "self_healing_active_issues",
+            "legendFormat": "{{ namespace }}"
+          }
+        ],
+        "type": "graph"
+      },
+      {
+        "title": "Remediation Attempts by Strategy",
+        "targets": [
+          {
+            "expr": "sum by (strategy) (self_healing_remediation_attempts_total)",
+            "legendFormat": "{{ strategy }}"
+          }
+        ],
+        "type": "pie"
+      }
+    ],
+    "time": {
+      "from": "now-6h",
+      "to": "now"
+    },
+    "refresh": "30s"
+  }
+}
