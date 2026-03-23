@@ -16,7 +16,7 @@ make demo-infra  # Creates cluster, deploys operator (30 seconds)
 
 ## 🏗️ Architecture
 
-<img width="1024" height="559" alt="image" src="https://github.com/user-attachments/assets/6df8b8b3-d94c-4c15-bba1-326a82a08e61" />
+<img width="1024" height="559" alt="image" src="https://github.com/user-attachments/assets/ac789176-93e3-4743-ab5b-9280750ac9b0" />
 
 ## ✨ Features
 
