@@ -1,0 +1,118 @@
+version: 1
+defaults:
+  action: immediate_remediation
+  strategy: restart_pod
+  confidence_threshold: 0.75
+  issue_frequency_threshold: 5
+  max_retries: 3
+  priority: 50
+  workflow: default
+  delay_seconds: 0
+  allowed_actions:
+    - immediate_remediation
+    - delay_and_retry
+    - escalate
+    - ignore
+    - manual_review
+  retry:
+    max_retries: 3
+    backoff:
+      base_seconds: 5
+      max_seconds: 120
+      jitter_seconds: 2
+  circuit_breaker:
+    failure_threshold: 5
+    recovery_timeout_seconds: 60
+    half_open_probes: 1
+    rolling_window_minutes: 5
+issue_policies:
+  OOMKilled:
+    action: immediate_remediation
+    strategy: increase_resources
+    confidence_threshold: 0.7
+    max_retries: 2
+    priority: 90
+    workflow: oom_recovery
+  CrashLoopBackOff:
+    action: delay_and_retry
+    strategy: restart_pod
+    confidence_threshold: 0.65
+    max_retries: 4
+    priority: 80
+    workflow: crash_recovery
+    delay_seconds: 10
+  ImagePullBackOff:
+    action: escalate
+    strategy: rollback_deployment
+    confidence_threshold: 0.8
+    max_retries: 1
+    priority: 70
+    workflow: image_recovery
+  PodPending:
+    action: manual_review
+    strategy: no_action
+    confidence_threshold: 0.9
+    max_retries: 0
+    priority: 40
+    workflow: scheduling_recovery
+workflows:
+  default:
+    name: default
+    steps:
+      - name: restart_pod
+        strategy: restart_pod
+        delay_seconds: 0
+        max_retries: 2
+        stop_on_success: true
+      - name: scale_up
+        strategy: scale_up
+        delay_seconds: 15
+        max_retries: 1
+        stop_on_success: true
+  oom_recovery:
+    name: oom_recovery
+    steps:
+      - name: increase_resources
+        strategy: increase_resources
+        delay_seconds: 0
+        max_retries: 2
+        stop_on_success: true
+      - name: scale_up
+        strategy: scale_up
+        delay_seconds: 30
+        max_retries: 1
+        stop_on_success: true
+  crash_recovery:
+    name: crash_recovery
+    steps:
+      - name: restart_pod
+        strategy: restart_pod
+        delay_seconds: 0
+        max_retries: 2
+        stop_on_success: true
+      - name: scale_up
+        strategy: scale_up
+        delay_seconds: 15
+        max_retries: 2
+        stop_on_success: true
+      - name: rollback_deployment
+        strategy: rollback_deployment
+        delay_seconds: 30
+        max_retries: 1
+        stop_on_success: true
+  image_recovery:
+    name: image_recovery
+    steps:
+      - name: rollback_deployment
+        strategy: rollback_deployment
+        delay_seconds: 0
+        max_retries: 1
+        stop_on_success: true
+  scheduling_recovery:
+    name: scheduling_recovery
+    steps:
+      - name: evict_pod
+        strategy: evict_pod
+        delay_seconds: 30
+        max_retries: 1
+        stop_on_success: true

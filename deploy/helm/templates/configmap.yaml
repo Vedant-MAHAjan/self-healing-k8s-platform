@@ -17,6 +17,11 @@ data:
   OPERATOR_AUTO_APPROVE_FIXES: {{ .Values.remediation.autoApprove | quote }}
   OPERATOR_MAX_REMEDIATION_RETRIES: {{ .Values.remediation.maxRetries | quote }}
   OPERATOR_REMEDIATION_COOLDOWN: {{ .Values.remediation.cooldown | quote }}
+  OPERATOR_ENABLE_AUTONOMOUS_CONTROL: {{ .Values.controlPlane.enabled | quote }}
+  OPERATOR_CONTROL_POLICY_PATH: {{ .Values.controlPlane.policyPath | quote }}
+  OPERATOR_STATE_STORE_PATH: {{ .Values.controlPlane.stateStorePath | quote }}
+  OPERATOR_SCHEDULER_POLL_INTERVAL: {{ .Values.controlPlane.schedulerPollInterval | quote }}
+  OPERATOR_SCHEDULER_WORKER_CONCURRENCY: {{ .Values.controlPlane.schedulerWorkerConcurrency | quote }}
   OPERATOR_ENABLE_POD_RESTART: {{ .Values.remediation.strategies.podRestart | quote }}
   OPERATOR_ENABLE_SCALING: {{ .Values.remediation.strategies.scaling | quote }}
   OPERATOR_ENABLE_ROLLBACK: {{ .Values.remediation.strategies.rollback | quote }}

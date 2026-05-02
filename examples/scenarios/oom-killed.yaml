@@ -20,14 +20,16 @@ spec:
       containers:
       - name: app
         image: python:3.11-slim
-        command: ["python", "-c"]
+        command: ["python", "-u", "-c"]  # -u for unbuffered output
         args:
           - |
             import time
-            print("Starting memory allocation...")
-            # Allocate exactly 150MB then sleep forever
-            data = ' ' * 150 * 1024 * 1024
-            print("Allocated 150MB - app now idle")
+            import sys
+            print("Starting memory allocation...", flush=True)
+            # Allocate 200MB (exceeds 128Mi limit)
+            data = ' ' * 200 * 1024 * 1024
+            print(f"Allocated 200MB - app now running", flush=True)
+            sys.stdout.flush()
             while True:
                 time.sleep(60)
         resources:

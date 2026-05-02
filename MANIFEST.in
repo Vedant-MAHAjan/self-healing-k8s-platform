@@ -1,6 +1,7 @@
 MANIFEST.in
 include README.md LICENSE CONTRIBUTING.md
-recursive-include operator *.py
+recursive-include k8s_operator *.py
+recursive-include k8s_operator *.yaml
 recursive-include deploy *.yaml *.tpl
 recursive-include examples *.yaml
 recursive-exclude tests *

@@ -17,7 +17,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy operator code to a non-conflicting path
-COPY operator/ /app/healing_operator/
+COPY k8s_operator/ /app/k8s_operator/
 
 # Create non-root user (avoid conflict with existing 'operator' group)
 RUN useradd -m -u 1000 appuser && \
@@ -30,4 +30,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD python -c "import sys; sys.exit(0)"
 
 # Run the operator (using module path to avoid name conflict with Python's operator module)
-CMD ["python", "-m", "healing_operator.main"]
+CMD ["python", "-m", "k8s_operator.main"]

@@ -26,9 +26,11 @@ setup(
     ],
     python_requires=">=3.11",
     install_requires=requirements,
+    include_package_data=True,
+    package_data={"k8s_operator": ["config_manager/*.yaml"]},
     entry_points={
         "console_scripts": [
-            "self-healing-operator=operator.main:main",
+            "self-healing-operator=k8s_operator.main:main",
         ],
     },
 )

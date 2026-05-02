@@ -24,6 +24,14 @@ operator:
   # Replica count (should be 1 for leader election to work)
   replicaCount: 1
 
+# Autonomous control plane configuration
+controlPlane:
+  enabled: true
+  policyPath: ""
+  stateStorePath: "/tmp/self-healing-control.db"
+  schedulerPollInterval: 5
+  schedulerWorkerConcurrency: 2
+
 # AI provider configuration
 ai:
   # Provider: openai, anthropic, or local

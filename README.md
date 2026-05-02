@@ -1,272 +1,155 @@
-# Self-Healing Kubernetes Platform 🚀
+# Self-Healing Kubernetes Platform
 
-An AI-powered Kubernetes operator that automatically detects, diagnoses, and fixes deployment issues using LLM-based intelligence. This is a fully functional, production-ready platform engineering project demonstrating advanced DevOps automation with local AI.
+A local-first, AI-assisted Kubernetes operator that detects failures, diagnoses root causes, and remediates issues through a policy-driven autonomous control plane. The project is designed to run without external API keys or cloud services. If Ollama is available, it uses a local LLM; otherwise it falls back to the built-in mock provider.
 
-## 🚀 Quick Start (2 minutes)
+This README reflects the current repository state. It covers the core control-plane concepts, the demo path, and a complete source map of the tracked project files. Generated artifacts, caches, and the local virtual environment are intentionally omitted from the source map.
+
+## Local-First Runtime
+
+| Component | Default |
+|---|---|
+| AI diagnosis | Ollama if available, otherwise built-in mock provider |
+| State storage | SQLite on disk |
+| Kubernetes target | Local KIND cluster |
+| Metrics | Self-hosted Prometheus client metrics |
+
+## System Architecture
+
+The operator now runs as an autonomous control system rather than a simple event-to-remediation loop.
+
+```text
+Metrics Aggregator
+   ->
+Detection Layer (Kopf handlers)
+   ->
+AI Diagnosis Engine
+   ->
+Decision Engine
+   ->
+Circuit Breaker
+   ->
+Retry + Backoff Engine
+   ->
+Job Scheduler
+   ->
+Execution Layer (remediation strategies)
+   ->
+Feedback + State Store
+```
+
+The important shift is that diagnosis no longer maps directly to action. The decision engine, breaker, retry engine, scheduler, and state store now sit between detection and execution so the system can make policy-driven, stateful decisions.
+
+## Core Control Plane Concepts
+
+### Decision Engine
+
+The decision engine is the policy layer between diagnosis and execution. It evaluates the detected issue, the AI diagnosis confidence, the recent failure history, and the metrics trend before choosing an action. It can decide to remediate immediately, delay and retry, escalate, ignore, or request manual review.
+
+This layer is deterministic. It uses policy data from the config manager and does not depend on the AI provider at decision time. That means a failed or low-confidence diagnosis still has a safe fallback path.
+
+Key files:
+- `k8s_operator/decision_engine/engine.py` implements the decision model and evaluation logic.
+- `k8s_operator/decision_engine/__init__.py` exports the public API.
+- `k8s_operator/control_plane.py` wires decisions into the orchestration flow.
+
+### Circuit Breaker
+
+The circuit breaker isolates repeated remediation failures per service. It tracks per-resource state and transitions through `CLOSED`, `OPEN`, and `HALF_OPEN` states. When the failure threshold is exceeded, the breaker opens and blocks repeated remediation until the cooldown expires. In half-open mode it allows a probe to test recovery.
+
+This prevents the operator from repeatedly hammering a broken deployment or creating cascading failures across the system.
+
+Key files:
+- `k8s_operator/circuit_breaker/breaker.py` implements the state machine and persistence.
+- `k8s_operator/circuit_breaker/__init__.py` exports breaker types.
+- `k8s_operator/state_store/store.py` persists breaker state in SQLite.
+
+### Retry + Backoff
+
+The retry engine decides whether a failure is transient or permanent and computes the next retry delay. It uses exponential backoff with jitter and enforces maximum retry limits. Permanent failures such as invalid configuration, permission errors, or manual-intervention cases are not retried blindly.
+
+This keeps the system resilient without becoming aggressive or noisy.
+
+Key files:
+- `k8s_operator/retry_engine/engine.py` classifies failures and computes delays.
+- `k8s_operator/retry_engine/__init__.py` exports the retry API.
+- `k8s_operator/control_plane.py` uses retry decisions to reschedule or escalate.
+
+### Job Scheduler
+
+The job scheduler turns remediation into queued work instead of immediate synchronous execution. Jobs are persisted, prioritized, delayed, retried, and executed asynchronously by worker loops. This means the operator loop does not block, jobs survive restarts, and follow-up workflow steps can be scheduled explicitly.
+
+The scheduler is the orchestration layer that sits between decisioning and execution.
+
+Key files:
+- `k8s_operator/scheduler/scheduler.py` defines the async queue, worker loops, and result handling.
+- `k8s_operator/scheduler/__init__.py` exports the scheduler API.
+- `k8s_operator/state_store/store.py` persists queued and running jobs.
+
+### Metrics Aggregator
+
+The metrics aggregator collects time-windowed signals from incidents, job failures, logs, and events. It computes short-window and longer-window issue frequency, classifies trends, and marks services as unstable when repeated failures are observed.
+
+This is what moves the system from event-driven remediation to trend-aware orchestration.
+
+Key files:
+- `k8s_operator/metrics/aggregator.py` builds `MetricsSnapshot` objects.
+- `k8s_operator/metrics/__init__.py` exports the metrics API.
+- `k8s_operator/utils/metrics.py` defines Prometheus gauges and counters.
+
+### Config Manager
+
+The config manager loads policy from YAML, validates it, and resolves per-issue or per-service overrides. It provides a defaults-first policy model with issue-level and service-level specialization. It also defines the workflows and breaker/retry policies used throughout the control plane.
+
+This is the main control surface for changing behavior without redeploying the operator.
+
+Key files:
+- `k8s_operator/config_manager/manager.py` loads, validates, and resolves policy.
+- `k8s_operator/config_manager/default_policy.yaml` contains the shipped defaults and workflows.
+- `k8s_operator/config_manager/__init__.py` exports the policy models and manager.
+
+### Workflow Engine
+
+The workflow engine turns a decision into a multi-step remediation plan. A workflow may restart a pod, wait, scale up, roll back, or escalate across several steps. The engine serializes issue, diagnosis, and decision state into the job payload so the scheduler can resume or continue the workflow later.
+
+This is what enables multi-step recovery rather than one-off remediation.
+
+Key files:
+- `k8s_operator/workflows/engine.py` defines workflow plans and payload building.
+- `k8s_operator/workflows/__init__.py` exports workflow types.
+- `k8s_operator/control_plane.py` chooses the workflow and schedules each step.
+
+### State Store
+
+The state store is a SQLite-backed persistence layer for incidents, diagnoses, decisions, jobs, and circuit breaker state. It provides the system history used by the decision engine and the metrics aggregator. It also gives the scheduler durable job storage so queued work is not lost on restart.
+
+This is the memory of the autonomous control plane.
+
+Key files:
+- `k8s_operator/state_store/store.py` defines the schema and all persistence operations.
+- `k8s_operator/state_store/__init__.py` exports the SQLite store.
+- `k8s_operator/control_plane.py` records incidents, diagnoses, decisions, jobs, and outcomes.
+
+## Running The Project
+
+The main demo and control-plane entry points are in the Makefile and the demo shell script.
 
 ```bash
-# 1. Prerequisites: Docker, kubectl, kind
-# Optional: Install Ollama for real AI (recommended)
-brew install ollama && ollama pull llama3
-
-# 2. Start demo infrastructure
-make demo-infra  # Creates cluster, deploys operator (30 seconds)
-
+make demo              # Full local demo using the default provider
+make demo-infra        # Create cluster + operator only
+make demo-autonomous   # Show the autonomous control pipeline
+make demo-scenario SCENARIO=oom-killed
+make demo-watch        # Tail the control-plane logs
+make demo-state        # Inspect jobs, incidents, breaker state
+make demo-clean        # Delete the KIND cluster
+make test              # Run the unit test suite
 ```
 
-## 🏗️ Architecture
+If Ollama is installed and the llama3 model is available, the operator uses real local inference. If not, it uses the built-in mock provider and still runs end-to-end with no external services.
 
-<img width="1024" height="1536" alt="image" src="https://github.com/user-attachments/assets/1818a33b-a6fd-4d8d-a0f3-81db4767f4ea" />
+## Notes On The Current Layout
 
-## ✨ Features
-
-### Self-Healing Capabilities
-
-| Issue Type | Detection | AI Diagnosis | Auto-Fix | Demo Status |
-|------------|-----------|--------------|----------|-------------|
-| **OOMKilled** | ✅ <1s | ✅ 95% confidence | ✅ Increase limits 1.5x | ✅ **Working** |
-| **CrashLoopBackOff** | ✅ Real-time | ✅ Root cause analysis | ✅ Restart/Scale/Rollback | ✅ **Working** |
-| **ImagePullBackOff** | ✅ Instant | ✅ Image validation | ✅ Rollback | ✅ Ready |
-| **Memory Leak** | ✅ Pattern-based | ✅ Trend analysis | ✅ Restart/Scale | ✅ Ready |
-| **Health Check Failure** | ✅ Real-time | ✅ Log analysis | ✅ Restart | ✅ Ready |
-
-### AI Diagnosis Providers
-
-- **🦙 Ollama (Recommended)** - Local LLM, FREE, no API keys, 90-95% confidence
-- **🧠 Mock Provider** - Smart rule-based fallback, 85-90% confidence
-- **🤖 OpenAI** - GPT-4 integration (optional)
-- **🔮 Anthropic** - Claude integration (optional)
-
-### Remediation Strategies (6 total)
-
-1. **restart_pod** - Delete and recreate pod
-2. **scale_up** / **scale_down** - Adjust replica count
-3. **rollback_deployment** - Revert to previous version
-4. **increase_resources** - Boost CPU/memory limits
-5. **evict_pod** - Force reschedule on different node
-6. **update_configmap** - Fix configuration issues
-
-## 🎬 Demo Commands
-
-### Full Automated Demo
-```bash
-make demo        # Complete demo with auto-deployed scenario
-make demo-clean  # Cleanup
-```
-
-### Demo
-```bash
-# Step 1: Setup infrastructure only
-make demo-infra  # Creates cluster + operator, NO auto-deploy
-
-# Step 2: Deploy scenarios manually
-kubectl apply -f examples/scenarios/oom-killed.yaml    # OOM fix (SUCCESS)
-kubectl apply -f examples/scenarios/crash-loop.yaml    # Persistent monitoring
-
-# Step 3: Watch logs
-kubectl logs -f -n self-healing-system deployment/self-healing-operator
-
-# Step 4: Verify fix
-kubectl get pods -n demo
-kubectl get deployment -n demo memory-hog -o json | jq '.spec.template.spec.containers[0].resources'
-```
-
-## 📁 Project Structure
-
-```
-self-healing-k8s/
-│
-├── operator/                           # 🎯 Core Kubernetes Operator
-│   ├── main.py                        # Entry point (kopf framework)
-│   ├── config.py                      # Configuration management
-│   ├── models.py                      # Data models
-│   ├── handlers/                      # Event handlers
-│   │   ├── pod_handlers.py            # Pod event processing
-│   │   └── alert_handlers.py          # Prometheus webhooks
-│   ├── diagnosis/                     # 🤖 AI Diagnosis Engine
-│   │   ├── ai_engine.py               # Main AI logic
-│   │   ├── prompts.py                 # LLM prompts
-│   │   └── providers/                 # LLM providers
-│   │       ├── ollama_provider.py     # FREE local LLM ✅
-│   │       ├── mock_provider.py       # Smart rule-based ✅
-│   │       ├── openai_provider.py     # GPT-4 integration
-│   │       └── anthropic_provider.py  # Claude integration
-│   └── remediation/                   # 🔧 Self-Healing Strategies
-│       ├── strategy_manager.py        # Strategy orchestration
-│       └── strategies.py              # 6 remediation strategies ✅
-│
-├── deploy/                             # 📦 Deployment Configurations
-│   ├── k8s/                           # Kubernetes manifests ✅
-│   │   └── rbac.yaml                  # RBAC policies
-│   ├── helm/                          # Helm chart (production-ready) ✅
-│   └── terraform/                     # IaC for AWS/GCP/Azure ✅
-│
-├── observability/                      # 📊 Monitoring Stack
-│   ├── prometheus/                    # Prometheus alert rules ✅
-│   └── grafana/                       # Grafana dashboards ✅
-│
-├── examples/scenarios/                 # 🧪 Demo Scenarios
-│   ├── oom-killed.yaml               # OOM scenario (auto-fixed) ✅
-│   ├── crash-loop.yaml               # Crash scenario (monitoring) ✅
-│   ├── memory-leak.yaml              # Memory leak detection ✅
-│   └── image-pull-error.yaml         # Image pull issues ✅
-│
-├── docs/                               # 📚 Documentation
-│   ├── DEMO_RECORDING_GUIDE.md       # 5-min recording script ✅
-│   ├── QUICK_DEMO_SCRIPT.md          # Copy-paste commands ✅
-│   └── DEMO_SUCCESS.md               # What success looks like ✅
-│
-├── tests/                              # ✅ Test Suite
-├── scripts/demo.sh                    # 🛠️ Demo automation ✅
-├── Makefile                            # Quick commands ✅
-├── Dockerfile                          # Production-ready image ✅
-└── README.md
-```
-
-## 🔧 How It Works
-
-### 1. Issue Detection
-```python
-# Operator watches Kubernetes events
-if container_status.waiting.reason == 'CrashLoopBackOff':
-    issue = Issue(type=IssueType.CRASH_LOOP, pod=pod, logs=get_logs())
-```
-
-### 2. AI Diagnosis
-```python
-class AIEngine:
-    async def diagnose(self, issue: Issue) -> Diagnosis:
-        prompt = build_diagnosis_prompt(issue)  # Include logs, events
-        response = await ollama.complete(prompt)  # Local LLM
-        return Diagnosis(
-            root_cause="Missing DATABASE_URL environment variable",
-            strategy=RemediationStrategy.RESTART_POD,
-            confidence=0.92
-        )
-```
-
-### 3. Automatic Remediation
-```python
-if diagnosis.strategy == RemediationStrategy.RESTART_POD:
-    await k8s.delete_pod(pod_name)  # Controller recreates it
-elif diagnosis.strategy == RemediationStrategy.SCALE_UP:
-    await k8s.scale_deployment(deployment, replicas + 1)
-```
-
-## 🧪 Test Scenarios
-
-### Scenario 1: OOM Fix (Demonstrates Success)
-```bash
-kubectl apply -f examples/scenarios/oom-killed.yaml
-
-# Expected: Pod OOMKilled → AI diagnoses → Memory increased 1.5x → Pod Running ✅
-# Timeline: Detection <1s, AI diagnosis ~8s, Fix applied, Pod healthy in ~30s total
-```
-
-### Scenario 2: Crash Loop (Demonstrates Persistence)
-```bash
-kubectl apply -f examples/scenarios/crash-loop.yaml
-
-# Expected: Pod crashes → Operator tries multiple strategies → Continuous monitoring 🔄
-# Shows: restart_pod, increase_resources, rollback_deployment attempts
-```
-
-### Scenario 3: Memory Leak Detection
-```bash
-kubectl apply -f examples/scenarios/memory-leak.yaml
-
-# Expected: Gradual memory increase detected → Proactive restart recommended
-```
-
-### Scenario 4: Image Pull Error
-```bash
-kubectl apply -f examples/scenarios/image-pull-error.yaml
-
-# Expected: Image not found → AI suggests rollback to previous version
-```
-
-### Watch Operator Logs
-```bash
-# Filtered for key events
-kubectl logs -f -n self-healing-system deployment/self-healing-operator | \
-  grep -E "(pod_issue_detected|ai_diagnosis_completed|deployment_resources_increased|remediation)"
-
-# Full logs
-kubectl logs -f -n self-healing-system deployment/self-healing-operator
-```
-
-## 🛠️ Development
-
-```bash
-make install    # Install dependencies
-make test       # Run tests
-make format     # Format code
-make docker-build  # Build image
-```
-
-## 📈 Production-Ready Features
-
-This is not just a demo - it's a production-ready platform:
-
-### Infrastructure as Code
-- ✅ **Terraform Modules** - AWS, GCP, Azure deployments (`deploy/terraform/`)
-- ✅ **Helm Charts** - GitOps-ready packaging (`deploy/helm/`)
-- ✅ **Kubernetes Manifests** - Complete RBAC, ServiceAccounts, ClusterRoles
-
-### Observability
-- ✅ **Prometheus Alert Rules** - Custom alerts for operator health
-- ✅ **Grafana Dashboards** - Remediation metrics, AI performance
-- ✅ **Structured Logging** - JSON logs with correlation IDs
-
-### Security
-- ✅ **RBAC Policies** - Least-privilege access
-- ✅ **Non-root Container** - Security best practices
-- ✅ **ConfigMap-based Config** - No secrets in code
-
-### AI/ML
-- ✅ **Multi-Provider Support** - Ollama, OpenAI, Anthropic, Mock
-- ✅ **Confidence Scoring** - Strategy recommendations with confidence levels
-- ✅ **Local-First** - Works offline with Ollama (no cloud costs)
-
-### Platform Engineering
-- ✅ **kopf Framework** - Production-grade K8s operator pattern
-- ✅ **Event-Driven** - Real-time issue detection (<1s)
-- ✅ **Idempotent Fixes** - Safe to retry
-- ✅ **Cooldown Periods** - Prevents remediation loops
-
-## 🎓 Use Cases
-
-This project demonstrates:
-
-1. **Platform Engineering** - Building self-service developer platforms
-2. **AI/ML Integration** - Practical LLM use in operations
-3. **Kubernetes Operators** - Production-grade kopf framework usage
-4. **DevOps Automation** - Reducing MTTR with intelligent automation
-5. **Site Reliability Engineering** - Automated incident response
-
-## 💡 Technical Highlights
-
-- **Language**: Python 3.11+ with async/await
-- **Framework**: kopf (Kubernetes Operator Framework)
-- **AI**: Multi-provider (Ollama/OpenAI/Anthropic/Mock)
-- **K8s**: client-go via kubernetes-asyncio
-- **Observability**: Prometheus + Grafana
-- **IaC**: Terraform (AWS/GCP/Azure)
-- **Packaging**: Helm 3, Docker multi-stage builds
-
----
-
-## 🌟 Project Status
-
-| Component | Status | Notes |
-|-----------|--------|-------|
-| Core Operator | ✅ Production-Ready | kopf framework, event-driven |
-| AI Diagnosis | ✅ Working | Ollama 95% confidence, 8s avg response |
-| Remediation | ✅ 6 Strategies | All tested and working |
-| Demo Infrastructure | ✅ Complete | make demo-infra command |
-| Documentation | ✅ Complete | Recording guide, quick start, success criteria |
-| Observability | ✅ Ready | Prometheus rules, Grafana dashboards |
-| IaC (Terraform) | ✅ Ready | AWS, GCP, Azure modules |
-| Helm Charts | ✅ Ready | Production deployment package |
-
----
+- `k8s_operator/` is the canonical package.
+- `operator/` remains in the tree as a compatibility namespace and historical copy of the earlier package layout.
+- `demo_script.py` is a standalone experiment/demo harness and is separate from the main `scripts/demo.sh` entry point.
+- The demo and the tests are fully local. If Ollama is absent, the project still runs using the built-in mock provider.
+- The repository already includes the autonomous modules requested for the upgrade: decision engine, breaker, retry/backoff, scheduler, metrics aggregator, config manager, workflow engine, and state store.

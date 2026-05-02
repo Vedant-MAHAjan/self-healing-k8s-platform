@@ -1,24 +1,43 @@
 # =============================================================================
 # Self-Healing Kubernetes Platform - Makefile
 # =============================================================================
-# Quick Start:
-#   make demo           - Run the full demo (recommended!)
-#   make demo-infra     - Set up infrastructure only (for manual scenario testing)
-#   make demo-clean     - Clean up demo cluster
+# Quick Start (zero cost, no API keys needed):
+#   make demo               - Full demo: KIND cluster + operator + crash scenario
+#   make demo-infra         - Cluster + operator only (deploy scenarios manually)
+#   make demo-autonomous    - Show full autonomous control plane in action
+#   make demo-scenario SCENARIO=oom-killed  - Deploy a single named scenario
+#   make demo-watch         - Tail filtered operator logs (decisions, scheduler, breaker)
+#   make demo-state         - Show pods, incidents, and job status
+#   make demo-clean         - Delete demo cluster
+#
+# AI providers (no API keys ever required):
+#   Default: Ollama (local LLM, free) → auto-falls-back to Mock (built-in, no setup)
 # =============================================================================
 
-.PHONY: help demo demo-infra demo-clean install test lint format docker-build clean
+.PHONY: help demo demo-infra demo-autonomous demo-scenario demo-watch demo-state \
+        demo-clean install test lint format docker-build clean
+
+# Python interpreter — prefer activated venv, fall back to python3.11, then python3
+PYTHON ?= $(shell command -v python3.11 2>/dev/null || command -v python3 2>/dev/null || echo python3)
+
+SCENARIO ?= oom-killed
 
 # Default target - show help
 help:
 	@echo ""
-	@echo "🚀 Self-Healing Kubernetes Platform"
-	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+	@echo "🚀 Self-Healing Kubernetes Platform (Zero Cost)"
+	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	@echo ""
-	@echo "Quick Start:"
-	@echo "  make demo        Run full demo (creates KIND cluster, deploys, shows healing)"
-	@echo "  make demo-infra  Set up infrastructure only (no auto-deploy scenarios)"
-	@echo "  make demo-clean  Delete demo cluster"
+	@echo "Demo (no API keys required):"
+	@echo "  make demo                            Full demo — cluster, operator, crash scenario"
+	@echo "  make demo-infra                      Cluster + operator only"
+	@echo "  make demo-autonomous                 Show full autonomous pipeline in action"
+	@echo "  make demo-scenario SCENARIO=<name>   Deploy one scenario (default: oom-killed)"
+	@echo "  make demo-watch                      Tail filtered operator logs"
+	@echo "  make demo-state                      Show pod + job status"
+	@echo "  make demo-clean                      Delete demo cluster"
+	@echo ""
+	@echo "  Scenarios: oom-killed, crash-loop, memory-leak, image-pull-error"
 	@echo ""
 	@echo "Development:"
 	@echo "  make install     Install Python dependencies"
@@ -30,15 +49,13 @@ help:
 	@echo "  make docker-build  Build Docker image"
 	@echo "  make clean         Clean build artifacts"
 	@echo ""
-	@echo "For REAL AI (optional, free):"
-	@echo "  1. Install Ollama: https://ollama.ai"
-	@echo "  2. Run: ollama pull llama3"
-	@echo "  3. Run: ollama serve"
-	@echo "  4. Run: make demo"
+	@echo "Optional free AI upgrade:"
+	@echo "  brew install ollama && ollama pull llama3 && ollama serve"
+	@echo "  (make demo auto-detects Ollama — no config change needed)"
 	@echo ""
 
 # =============================================================================
-# 🎯 DEMO - Main Entry Point!
+# 🎯 DEMO - Main Entry Points
 # =============================================================================
 
 demo:
@@ -49,6 +66,22 @@ demo-infra:
 	@chmod +x scripts/demo.sh
 	@./scripts/demo.sh infra-only
 
+demo-autonomous:
+	@chmod +x scripts/demo.sh
+	@./scripts/demo.sh autonomous
+
+demo-scenario:
+	@chmod +x scripts/demo.sh
+	@./scripts/demo.sh scenario $(SCENARIO)
+
+demo-watch:
+	@chmod +x scripts/demo.sh
+	@./scripts/demo.sh watch
+
+demo-state:
+	@chmod +x scripts/demo.sh
+	@./scripts/demo.sh state
+
 demo-clean:
 	@chmod +x scripts/demo.sh
 	@./scripts/demo.sh clean
@@ -58,19 +91,19 @@ demo-clean:
 # =============================================================================
 
 install:
-	pip install -r requirements.txt
-	pip install -e .
+	$(PYTHON) -m pip install -r requirements.txt
+	$(PYTHON) -m pip install -e .
 
 test:
-	pytest tests/unit/ -v
+	$(PYTHON) -m pytest tests/unit/ -v
 
 lint:
-	flake8 operator/ --max-line-length=100 || true
-	mypy operator/ --ignore-missing-imports || true
+	$(PYTHON) -m flake8 k8s_operator/ --max-line-length=100 || true
+	$(PYTHON) -m mypy k8s_operator/ --ignore-missing-imports || true
 
 format:
-	black operator/ tests/ || true
-	isort operator/ tests/ || true
+	$(PYTHON) -m black k8s_operator/ tests/ || true
+	$(PYTHON) -m isort k8s_operator/ tests/ || true
 
 # =============================================================================
 # Build
@@ -88,6 +121,3 @@ clean:
 	find . -type f -name "*.pyc" -delete 2>/dev/null || true
 	find . -type d -name "*.egg-info" -exec rm -rf {} + 2>/dev/null || true
 	rm -rf build/ dist/ .pytest_cache/ .mypy_cache/ 2>/dev/null || true
-	find . -type f -name "*.pyo" -delete
-	find . -type d -name "*.egg-info" -exec rm -rf {} +
-	rm -rf build/ dist/ .pytest_cache/ .mypy_cache/
